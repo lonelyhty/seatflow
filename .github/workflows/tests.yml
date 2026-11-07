@@ -31,6 +31,8 @@ jobs:
       - name: Build distributable wheel
         run: python -m pip wheel --no-deps . --wheel-dir dist
       - name: Check CLI imports
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           seatflow --help
           seatflow-single --help
