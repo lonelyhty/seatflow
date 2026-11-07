@@ -137,9 +137,9 @@ class ReservationRunner:
         url = urlsplit(page.url)
         if not self.test_site and (url.scheme != 'https' or url.netloc != "office.chaoxing.com"):
             return False
-        self._check_binding(page)
         if not self.test_site and not SchoolEntry.parse(self.entry_url).matches_page(page.url):
             raise FlowError('登录后页面与所选学校入口不一致，请核对该校预约链接。')
+        self._check_binding(page)
         return (
             self.visible(page.get_by_text("预约选座", exact=True))
             or (self.visible(page.locator("li.active h6.mtab_time"))
@@ -170,7 +170,7 @@ class ReservationRunner:
         page.locator("#loginBtn").click()
         started = monotonic_time.monotonic()
         manual_reported = False
-        returned_to_entry = False
+        entry_reopen_attempts = 0
         while monotonic_time.monotonic() - started < 180:
             self.checkpoint()
             if self.auth_error:
@@ -180,12 +180,20 @@ class ReservationRunner:
             if self.test_site:
                 at_office = (url.hostname in {'127.0.0.1', 'localhost'}
                              and url.path in {'/front/third/apps/seat/index', '/front/third/apps/seat/list'})
-            if at_office and not returned_to_entry:
-                # SSO can return to a previous school's application. Reopen the
-                # selected entry once after authentication, just as HTTP login does.
-                self.identity_binding = False
-                self._goto(page, self.entry_url)
-                returned_to_entry = True
+            if at_office:
+                if self.test_site:
+                    selected_entry = url.hostname in {'127.0.0.1', 'localhost'} and url.path in {
+                        '/front/third/apps/seat/index', '/front/third/apps/seat/list'}
+                else:
+                    selected_entry = SchoolEntry.parse(self.entry_url).matches_page(page.url)
+                if not selected_entry:
+                    if entry_reopen_attempts >= 3:
+                        raise FlowError('登录后页面与所选学校入口不一致，请核对该校预约链接。')
+                    # SSO can complete with a stale callback to a previously selected school.
+                    self.identity_binding = False
+                    self._goto(page, self.entry_url)
+                    entry_reopen_attempts += 1
+                    continue
             if self._ready(page):
                 self.dismiss_notice(page)
                 self.last_login_at = now_china()

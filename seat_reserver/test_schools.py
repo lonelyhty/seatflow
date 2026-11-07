@@ -413,7 +413,7 @@ class SchoolBrowserLoginTests(unittest.TestCase):
                 route.fulfill(content_type='application/json', body='{"status":true}')
             elif request.url == ENTRY_URL:
                 # A stale callback can land on another school's binding prompt.
-                body = '<button>预约选座</button>' if wrong_redirect else '<p>请先绑定工号</p>'
+                body = '<p>请先绑定工号</p>' if wrong_redirect else '<button>预约选座</button>'
                 route.fulfill(content_type='text/html; charset=utf-8', body=body)
             else:
                 route.fulfill(status=404, body='Unknown fixture URL')
